@@ -417,8 +417,9 @@ class Character extends FlxSprite {
 			}
 
 			var name:String = getAnimationName();
-			if(isAnimationFinished() && animOffsets.exists('$name-loop'))
-				playAnim('$name-loop');
+			var loopName:String = name + "-loop";
+			if(isAnimationFinished() && animOffsets.exists(loopName))
+				playAnim(loopName);
 		}
 		super.update(elapsed);
 	}
@@ -507,6 +508,12 @@ class Character extends FlxSprite {
 		specialAnim = false;
 		isMissing = AnimName.endsWith("miss");
 
+		// PERFORMANCE: avoid replaying the same animation every frame
+		if (!Force && animation != null && animation.curAnim != null && animation.curAnim.name == AnimName) {
+			return;
+		}
+
+
 		if (AnimName == "taunt" || AnimName == "taunt-alt") {
 			specialAnim = true;
 			heyTimer = 1;
@@ -561,18 +568,20 @@ class Character extends FlxSprite {
 		}
 
 		if (animSounds != null /* ?? */ && animSounds.exists(AnimName)) {
-			if (sound != null) {
-				sound.stop();
-				sound.destroy();
-				sound = null;
-			}
-
-			sound = FlxG.sound.play(animSounds.get(AnimName));
-			if (sound != null) {
-				sound.onComplete = () -> {
-					sound.destroy();
-					sound = null;
-				};
+			// PERFORMANCE: avoid creating/destroying FlxSound every animation frame.
+			var sndPath = animSounds.get(AnimName);
+			if (sndPath != null) {
+				// only start a new sound if none is playing
+				if (sound == null || !sound.active) {
+					sound = FlxG.sound.play(sndPath);
+					if (sound != null) {
+						// stop and null out on complete but do not frequently destroy/start instances
+						sound.onComplete = () -> {
+							sound.stop();
+							sound = null;
+						};
+					}
+				}
 			}
 		}
 
