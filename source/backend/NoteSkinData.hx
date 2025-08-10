@@ -10,58 +10,66 @@ import sys.FileSystem;
 class NoteSkinData {
 	public static var noteSkins:Array<NoteSkinStructure> = [];
 	public static var noteSkinArray:Array<String> = [];
+	private static var noteSkinMap:Map<String, NoteSkinStructure> = new Map();
 
-	public static function reloadNoteSkins()
-	{
+	public static function reloadNoteSkins() {
 		noteSkins = [];
 		noteSkinArray = [];
+		noteSkinMap = new Map();
 
+		// Cache de directorios base
 		var directories:Array<Array<String>> = [[Paths.getLibraryPathForce('', 'shared'), '']];
 		#if MODS_ALLOWED
 		directories.push([Paths.mods(), '']);
 
-		for (mod in Mods.parseList().enabled)
-		{
-			if(Mods.getGlobalMods().contains(mod))
+		var enabledMods = Mods.parseList().enabled;
+		var globalMods = Mods.getGlobalMods();
+
+		for (mod in enabledMods) {
+			if (globalMods.contains(mod)) {
 				directories.push([Paths.mods(mod + '/'), mod]);
+			}
 		}
 		#end
 
-		var skinsFinished:Array<String> = [];
+		// Leer list.txt de cada directorio
+		for (dir in directories) {
+			var listPath = dir[0] + 'images/noteSkins/list.txt';
+			#if sys
+			if (!FileSystem.exists(listPath)) continue; // Evita intentos fallidos
+			#end
 
-		for (i in 0...directories.length) {
-			var directory:String = directories[i][0] + 'images/noteSkins/list.txt';
-
-			for (skin in CoolUtil.coolTextFile(directory)) {
-				if(!noteSkinArray.contains(skin)) {
-					noteSkins.push({
-						skin: skin, 
-						folder: directories[i][1], 
-						url: online.mods.OnlineMods.getModURL(directories[i][1])
-					});
-
+			var skins = CoolUtil.coolTextFile(listPath);
+			for (skin in skins) {
+				if (!noteSkinMap.exists(skin)) {
+					var ns:NoteSkinStructure = {
+						skin: skin,
+						folder: dir[1],
+						url: online.mods.OnlineMods.getModURL(dir[1])
+					};
+					noteSkins.push(ns);
 					noteSkinArray.push(skin);
+					noteSkinMap.set(skin, ns);
 				}
 			}
 		}
 
-		noteSkins.insert(0, {skin: ClientPrefs.defaultData.noteSkin, folder: ''}); //Default skin always comes first
-		noteSkinArray.insert(0, ClientPrefs.defaultData.noteSkin);
+		// Insertar el skin por defecto primero
+		var defaultSkin = ClientPrefs.defaultData.noteSkin;
+		noteSkins.insert(0, {skin: defaultSkin, folder: ''});
+		noteSkinArray.insert(0, defaultSkin);
+		noteSkinMap.set(defaultSkin, {skin: defaultSkin, folder: ''});
 	}
 
-	public static function getCurrent(?player:Int = 0):NoteSkinStructure
-	{
-		var toReturn:NoteSkinStructure = null;
-		
-		if(player == -1)
-			toReturn = NoteSkinData.noteSkins[NoteSkinData.noteSkinArray.indexOf(ClientPrefs.data.noteSkin)];
-		else
-			toReturn = NoteSkinData.noteSkins[NoteSkinData.noteSkinArray.indexOf(ClientPrefs.getNoteSkin(player))];
+	public static function getCurrent(?player:Int = 0):NoteSkinStructure {
+		var skinName = (player == -1) 
+			? ClientPrefs.data.noteSkin 
+			: ClientPrefs.getNoteSkin(player);
 
-		if(toReturn == null)
-			toReturn = NoteSkinData.noteSkins[0];
-
-		return toReturn;
+		// Acceso en O(1) usando el Map
+		var ns = noteSkinMap.get(skinName);
+		if (ns == null) ns = noteSkins[0];
+		return ns;
 	}
 }
 
