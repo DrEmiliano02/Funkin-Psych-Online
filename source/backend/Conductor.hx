@@ -1,119 +1,92 @@
-class Conductor {
-	public static var bpm(default, set):Float = 100;
-	public static var crochet:Float = ((60 / bpm) * 1000);
-	public static var stepCrochet:Float = crochet / 4;
-	public static var songPosition:Float = 0;
-	public static var judgeSongPosition:Null<Float> = null;
-	public static var judgePlaybackRate:Null<Float> = null;
-	public static var offset:Float = 0;
-	public static var safeZoneOffset:Float = 0;
+package backend;
 
-	public static var bpmChangeMap:Array<BPMChangeEvent> = [];
-	static final defaultChange:BPMChangeEvent = {
-		stepTime: 0,
-		songTime: 0,
-		bpm: bpm,
-		stepCrochet: stepCrochet
-	};
+typedef BPMChangeEvent = {
+    var stepTime:Float;
+    var songTime:Float;
+    var bpm:Float;
+    var stepCrochet:Float;
+}
 
-	public function new() {}
+class Conductor
+{
+    public static var bpm(default, set):Float = 100;
+    public static var crochet:Float = ((60 / bpm) * 1000);
+    public static var stepCrochet:Float = crochet / 4;
 
-	public static function judgeNote(arr:Array<Rating>, diff:Float=0):Rating {
-		for (i in 0...arr.length-1) {
-			if (diff <= arr[i].hitWindow) return arr[i];
-		}
-		return arr[arr.length - 1];
-	}
+    public static var songPosition:Float = 0;
+    public static var judgeSongPosition:Null<Float> = null;
+    public static var judgePlaybackRate:Null<Float> = null;
+    public static var offset:Float = 0;
+    public static var safeZoneOffset:Float = 0;
 
-	public static inline function getCrotchetAtTime(time:Float){
-		return getBPMFromSeconds(time).stepCrochet * 4;
-	}
+    public static var bpmChangeMap:Array<BPMChangeEvent> = [];
+    static final defaultChange:BPMChangeEvent = {
+        stepTime: 0,
+        songTime: 0,
+        bpm: bpm,
+        stepCrochet: stepCrochet
+    };
 
-	// Búsqueda binaria optimizada
-	public static function getBPMFromSeconds(time:Float){
-		if (bpmChangeMap.length == 0) return defaultChange;
+    public static var lastSongPos:Float = 0;
+    public static var lastBpmChange:Null<BPMChangeEvent> = null;
 
-		var low = 0;
-		var high = bpmChangeMap.length - 1;
-		while (low <= high) {
-			var mid = (low + high) >> 1;
-			if (bpmChangeMap[mid].songTime <= time) low = mid + 1; else high = mid - 1;
-		}
-		return bpmChangeMap[Math.max(high, 0)];
-	}
+    public function new()
+    {
+        // Constructor vacío si se necesita
+    }
 
-	public static function getBPMFromStep(step:Float){
-		if (bpmChangeMap.length == 0) return defaultChange;
+    public static function mapBPMChanges(song:Dynamic)
+    {
+        bpmChangeMap = [];
+        bpm = song.bpm;
 
-		var low = 0;
-		var high = bpmChangeMap.length - 1;
-		while (low <= high) {
-			var mid = (low + high) >> 1;
-			if (bpmChangeMap[mid].stepTime <= step) low = mid + 1; else high = mid - 1;
-		}
-		return bpmChangeMap[Math.max(high, 0)];
-	}
+        var curStepTime:Float = 0;
+        var curSongTime:Float = 0;
 
-	public static inline function beatToSeconds(beat:Float):Float {
-		var step = beat * 4;
-		var lastChange = getBPMFromStep(step);
-		return lastChange.songTime + ((step - lastChange.stepTime) * lastChange.stepCrochet);
-	}
+        bpmChangeMap.push({
+            stepTime: curStepTime,
+            songTime: curSongTime,
+            bpm: bpm,
+            stepCrochet: stepCrochet
+        });
 
-	public static inline function getStep(time:Float){
-		var lastChange = getBPMFromSeconds(time);
-		return lastChange.stepTime + (time - lastChange.songTime) / lastChange.stepCrochet;
-	}
+        if (song.notes != null)
+        {
+            for (section in song.notes)
+            {
+                if (section.changeBPM && section.bpm != bpm)
+                {
+                    bpm = section.bpm;
+                    stepCrochet = ((60 / bpm) * 1000) / 4;
 
-	public static inline function getStepRounded(time:Float){
-		var lastChange = getBPMFromSeconds(time);
-		return lastChange.stepTime + Math.floor(time - lastChange.songTime) / lastChange.stepCrochet;
-	}
+                    bpmChangeMap.push({
+                        stepTime: curStepTime,
+                        songTime: curSongTime,
+                        bpm: bpm,
+                        stepCrochet: stepCrochet
+                    });
+                }
+                curStepTime += 16;
+                curSongTime += 16 * stepCrochet;
+            }
+        }
+    }
 
-	public static inline function getBeat(time:Float){
-		return getStep(time) / 4;
-	}
+    public static function set_bpm(value:Float):Float
+    {
+        bpm = value;
+        crochet = (60 / bpm) * 1000;
+        stepCrochet = crochet / 4;
+        return bpm;
+    }
 
-	public static inline function getBeatRounded(time:Float):Int{
-		return Math.floor(getStepRounded(time) / 4);
-	}
-
-	public static function mapBPMChanges(song:SwagSong) {
-		bpmChangeMap = [];
-		var curBPM:Float = song.bpm;
-		var totalSteps:Int = 0;
-		var totalPos:Float = 0;
-		var msPerStep = (60 / curBPM) * 1000 / 4;
-
-		for (i in 0...song.notes.length) {
-			if (song.notes[i].changeBPM && song.notes[i].bpm != curBPM) {
-				curBPM = song.notes[i].bpm;
-				msPerStep = (60 / curBPM) * 1000 / 4;
-				bpmChangeMap.push({
-					stepTime: totalSteps,
-					songTime: totalPos,
-					bpm: curBPM,
-					stepCrochet: msPerStep
-				});
-			}
-			var deltaSteps = Math.round(getSectionBeats(song, i) * 4);
-			totalSteps += deltaSteps;
-			totalPos += msPerStep * deltaSteps;
-		}
-	}
-
-	static inline function getSectionBeats(song:SwagSong, section:Int) {
-		return song.notes[section]?.sectionBeats ?? 4;
-	}
-
-	public static inline function calculateCrochet(bpm:Float) {
-		return (60 / bpm) * 1000;
-	}
-
-	public static function set_bpm(newBPM:Float):Float {
-		bpm = newBPM;
-		crochet = calculateCrochet(bpm);
-		stepCrochet = crochet / 4;
-		return bpm;
-	}
+    public static function getBPMFromSeconds(time:Float):Float
+    {
+        var lastChange:BPMChangeEvent = defaultChange;
+        for (change in bpmChangeMap)
+        {
+            if (time >= change.songTime) lastChange = change;
+        }
+        return lastChange.bpm;
+    }
 }
