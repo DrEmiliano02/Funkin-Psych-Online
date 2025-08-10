@@ -12,9 +12,6 @@ class MusicBeatSubstate extends FlxSubState
 	private var curSection:Int = 0;
 	private var stepsToDo:Int = 0;
 
-	private var lastBeat:Float = 0;
-	private var lastStep:Float = 0;
-
 	private var curStep:Int = 0;
 	private var curBeat:Int = 0;
 
@@ -27,98 +24,110 @@ class MusicBeatSubstate extends FlxSubState
 
 	override function update(elapsed:Float)
 	{
-		//everyStep();
-		if(!persistentUpdate) MusicBeatState.timePassedOnState += elapsed;
-		var oldStep:Int = curStep;
+		if (!persistentUpdate)
+			MusicBeatState.timePassedOnState += elapsed;
 
+		var oldStep:Int = curStep;
 		updateCurStep();
-		updateBeat();
 
 		if (oldStep != curStep)
 		{
-			if(curStep > 0)
+			updateBeat();
+
+			if (curStep > 0)
 				stepHit();
 
-			if(PlayState.SONG != null)
+			var song = PlayState.SONG;
+			if (song != null)
 			{
 				if (oldStep < curStep)
-					updateSection();
+					updateSection(song);
 				else
-					rollbackSection();
+					rollbackSection(song);
 			}
 		}
 
 		super.update(elapsed);
 	}
 
-	private function updateSection():Void
+	private function updateSection(song:Dynamic):Void
 	{
-		if(stepsToDo < 1) stepsToDo = Math.round(getBeatsOnSection() * 4);
-		while(curStep >= stepsToDo)
+		if (stepsToDo < 1)
+			stepsToDo = Math.round(getBeatsOnSection(song, curSection) * 4);
+
+		while (curStep >= stepsToDo)
 		{
 			curSection++;
-			var beats:Float = getBeatsOnSection();
-			stepsToDo += Math.round(beats * 4);
+			stepsToDo += Math.round(getBeatsOnSection(song, curSection) * 4);
 			sectionHit();
 		}
 	}
 
-	private function rollbackSection():Void
+	private function rollbackSection(song:Dynamic):Void
 	{
-		if(curStep < 0) return;
+		if (curStep < 0) return;
 
 		var lastSection:Int = curSection;
 		curSection = 0;
 		stepsToDo = 0;
-		for (i in 0...PlayState.SONG.notes.length)
+
+		var notes = song.notes;
+		var len = notes.length;
+		for (i in 0...len)
 		{
-			if (PlayState.SONG.notes[i] != null)
+			var section = notes[i];
+			if (section != null)
 			{
-				stepsToDo += Math.round(getBeatsOnSection() * 4);
-				if(stepsToDo > curStep) break;
-				
+				stepsToDo += Math.round(getBeatsOnSection(song, i) * 4);
+				if (stepsToDo > curStep) break;
 				curSection++;
 			}
 		}
 
-		if(curSection > lastSection) sectionHit();
+		if (curSection > lastSection)
+			sectionHit();
 	}
 
-	private function updateBeat():Void
+	private inline function updateBeat():Void
 	{
-		curBeat = Math.floor(curStep / 4);
-		curDecBeat = curDecStep/4;
+		curBeat = Std.int(curStep / 4);
+		curDecBeat = curDecStep / 4;
 	}
 
 	private function updateCurStep():Void
 	{
-		var lastChange = Conductor.getBPMFromSeconds(Conductor.songPosition);
+		var songPos = Conductor.songPosition;
+		var offset = ClientPrefs.data.noteOffset;
+		var lastChange = Conductor.getBPMFromSeconds(songPos);
 
-		var shit = ((Conductor.songPosition - ClientPrefs.data.noteOffset) - lastChange.songTime) / lastChange.stepCrochet;
-		curDecStep = lastChange.stepTime + shit;
-		curStep = lastChange.stepTime + Math.floor(shit);
+		var diff = ((songPos - offset) - lastChange.songTime) / lastChange.stepCrochet;
+		curDecStep = lastChange.stepTime + diff;
+		curStep = lastChange.stepTime + Std.int(diff);
 	}
 
 	public function stepHit():Void
 	{
-		if (curStep % 4 == 0)
+		if ((curStep & 3) == 0) // más rápido que %4
 			beatHit();
 	}
 
 	public function beatHit():Void
 	{
-		//do literally nothing dumbass
+		// intentionally empty
 	}
-	
+
 	public function sectionHit():Void
 	{
-		//yep, you guessed it, nothing again, dumbass
+		// intentionally empty
 	}
-	
-	function getBeatsOnSection()
+
+	private inline function getBeatsOnSection(song:Dynamic, sectionIndex:Int):Float
 	{
-		var val:Null<Float> = 4;
-		if(PlayState.SONG != null && PlayState.SONG.notes[curSection] != null) val = PlayState.SONG.notes[curSection].sectionBeats;
-		return val == null ? 4 : val;
+		if (song != null && song.notes[sectionIndex] != null)
+		{
+			var val = song.notes[sectionIndex].sectionBeats;
+			return (val != null) ? val : 4;
+		}
+		return 4;
 	}
 }
