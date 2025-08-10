@@ -1506,31 +1506,24 @@ class PlayState extends MusicBeatState
 	}
 
 	public function addTextToDebug(text:String, color:FlxColor) {
-		if (!ClientPrefs.isDebug()) {
-			return;
-		}
-
 		#if LUA_ALLOWED
-		var newText:DebugLuaText = luaDebugGroup.recycle(DebugLuaText);
+		var newText:FunkinLua.DebugLuaText = luaDebugGroup.recycle(DebugLuaText);
 		newText.text = text;
 		newText.color = color;
 		newText.disableTime = 6;
 		newText.alpha = 1;
 		newText.setPosition(10, 8 - newText.height);
 
-		{
-    var __spr_i:Int = luaDebugGroup.length - 1;
-    while (__spr_i >= 0) {
-        var spr = cast(luaDebugGroup.members[__spr_i], Dynamic);
-        if (spr != null && spr.exists) {
-        spr.y += newText.height + 2;
-        }
-        __spr_i--;
-    }
-};
+		luaDebugGroup.forEachAlive(function(spr:DebugLuaText) {
+			spr.y += newText.height + 2;
+		});
 		luaDebugGroup.add(newText);
+		newText.setFormat(Paths.font("old_windows.ttf"));
+
+		Sys.println(text);
 		#end
 	}
+
 
 	public function reloadHealthBarColors() {
 		if (!isDuel) {
@@ -2031,22 +2024,15 @@ class PlayState extends MusicBeatState
 					trace(exc);
 				}
 
-				{
-    var __note_i:Int = notes.length - 1;
-    while (__note_i >= 0) {
-        var note = cast(notes.members[__note_i], Dynamic);
-        if (note != null && note.exists) {
-        if(ClientPrefs.data.opponentStrums || isPlayerNote(note))
-        					{
-        						note.copyAlpha = false;
-        						note.noteAlpha = note.multAlpha;
-        						if (ClientPrefs.data.middleScroll && !isPlayerNote(note))
-        							note.noteAlpha *= 0.35;
-        					}
-        }
-        __note_i--;
-    }
-};
+				notes.forEachAlive(function(note:Note) {
+					if(ClientPrefs.data.opponentStrums || isPlayerNote(note))
+					{
+						note.copyAlpha = false;
+						note.noteAlpha = note.multAlpha;
+						if (ClientPrefs.data.middleScroll && !isPlayerNote(note))
+							note.noteAlpha *= 0.35;
+					}
+				});
 
 				stagesFunc(function(stage:BaseStage) stage.countdownTick(tick, swagCounter));
 				callOnLuas('onCountdownTick', [swagCounter]);
@@ -3157,17 +3143,11 @@ class PlayState extends MusicBeatState
 					}
 					else
 					{
+						notes.forEachAlive(function(daNote:Note)
 						{
-    var __daNote_i:Int = notes.length - 1;
-    while (__daNote_i >= 0) {
-        var daNote = cast(notes.members[__daNote_i], Dynamic);
-        if (daNote != null && daNote.exists) {
-        daNote.canBeHit = false;
-        							daNote.wasGoodHit = false;
-        }
-        __daNote_i--;
-    }
-};
+							daNote.canBeHit = false;
+							daNote.wasGoodHit = false;
+						});
 					}
 				}
 
@@ -4711,21 +4691,15 @@ class PlayState extends MusicBeatState
 				var pressNotes:Array<Note> = [];
 				var notesStopped:Bool = false;
 				var sortedNotesList:Array<Note> = [];
+				notes.forEachAlive(function(daNote:Note)
 				{
-    var __daNote_i:Int = notes.length - 1;
-    while (__daNote_i >= 0) {
-        var daNote = cast(notes.members[__daNote_i], Dynamic);
-        if (daNote != null && daNote.exists) {
-        if (strumsBlocked[daNote.noteData] != true && daNote.canBeHit && isPlayerNote(daNote) &&
-        						!daNote.tooLate && !daNote.wasGoodHit && !daNote.isSustainNote && !daNote.blockHit)
-        					{
-        						if(daNote.noteData == key) sortedNotesList.push(daNote);
-        						canMiss = true;
-        					}
-        }
-        __daNote_i--;
-    }
-};
+					if (strumsBlocked[daNote.noteData] != true && daNote.canBeHit && isPlayerNote(daNote) &&
+						!daNote.tooLate && !daNote.wasGoodHit && !daNote.isSustainNote && !daNote.blockHit)
+					{
+						if(daNote.noteData == key) sortedNotesList.push(daNote);
+						canMiss = true;
+					}
+				});
 				sortedNotesList.sort(sortHitNotes);
 
 				if (sortedNotesList.length > 0) {
@@ -4857,20 +4831,14 @@ class PlayState extends MusicBeatState
 			// rewritten inputs???
 			if(notes.length > 0)
 			{
+				notes.forEachAlive(function(daNote:Note)
 				{
-    var __daNote_i:Int = notes.length - 1;
-    while (__daNote_i >= 0) {
-        var daNote = cast(notes.members[__daNote_i], Dynamic);
-        if (daNote != null && daNote.exists) {
-        // hold note functions
-        					if (strumsBlocked[daNote.noteData] != true && daNote.isSustainNote && holdArray[daNote.noteData] && daNote.canBeHit
-        					&& isPlayerNote(daNote) && !daNote.tooLate && !daNote.wasGoodHit && !daNote.blockHit) {
-        						goodNoteHit(daNote);
-        					}
-        }
-        __daNote_i--;
-    }
-};
+					// hold note functions
+					if (strumsBlocked[daNote.noteData] != true && daNote.isSustainNote && holdArray[daNote.noteData] && daNote.canBeHit
+					&& isPlayerNote(daNote) && !daNote.tooLate && !daNote.wasGoodHit && !daNote.blockHit) {
+						goodNoteHit(daNote);
+					}
+				});
 			}
 
 			self.noteHold = holdArray.contains(true);
@@ -4898,20 +4866,10 @@ class PlayState extends MusicBeatState
 
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
 		//Dupe note remove
-		{
-    var __note_i:Int = notes.length - 1;
-    while (__note_i >= 0) {
-        var note = cast(notes.members[__note_i], Dynamic);
-        if (note != null && note.exists) {
-        if (daNote != note && isPlayerNote(daNote) && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1) {
-        				note.kill();
-        				notes.remove(note, true);
-        				note.destroy();
-        			}
-        }
-        __note_i--;
-    }
-};
+		notes.forEachAlive(function(note:Note) {
+			if (daNote != note && daNote.mustPress && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1)
+				invalidateNote(note);
+		});
 
 		final end:Note = daNote.isSustainNote ? daNote.parent.tail[daNote.parent.tail.length - 1] : daNote.tail[daNote.tail.length - 1];
 		if (end != null && end.noteHoldSplash != null) {
@@ -4925,10 +4883,11 @@ class PlayState extends MusicBeatState
 
 	function noteMissPress(direction:Int = 1):Void //You pressed a key when there was no notes to press for this key
 	{
-		if(ClientPrefs.getGhostTapping()) return; //fuck it
+		if(ClientPrefs.data.ghostTapping) return; //fuck it
 
 		noteMissCommon(direction);
-		callOnScripts('noteMissPress', [direction]);
+		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
+		stagesFunc(function(stage:BaseStage) stage.noteMissPress(direction));
 	}
 
 	function noteMissCommon(direction:Int, note:Note = null)
@@ -6046,46 +6005,50 @@ class PlayState extends MusicBeatState
 			});
 		});
 
-		GameClient.room.onMessage("noteHit", function(_message:Array<Dynamic>) {
-			var sid:String = _message[0];
-			var message:Array<Dynamic> = _message[1];
+GameClient.room.onMessage("noteHit", function(_message:Array<Dynamic>) {
+    var sid:String = _message[0];
+    var message:Array<Dynamic> = _message[1];
 
-			Waiter.put(() -> {
-				if (message == null || message[0] == null || message[1] == null || message[2] == null)
-					return;
+    Waiter.put(() -> {
+        // Validación rápida para evitar entrar en loops innecesarios
+        if (message == null || message.length < 3 || message[0] == null || message[1] == null || message[2] == null)
+            return;
 
-				if (callOnScripts('onMessageNoteHit', [sid, message], true) == FunkinLua.Function_Stop)
-					return;
+        if (callOnScripts('onMessageNoteHit', [sid, message], true) == FunkinLua.Function_Stop)
+            return;
 
-				{
-    var __note_i:Int = notes.length - 1;
-    while (__note_i >= 0) {
-        var note = cast(notes.members[__note_i], Dynamic);
-        if (note != null && note.exists) {
-        if (!isPlayerNote(note)
-        						&& note.noteData == message[1]
-        						&& note.isSustainNote == message[2]
-        						&& Math.abs(note.strumTime - message[0]) < 1) 
-        					{
-        						opponentNoteHit(note, sid);
-        					}
+        // Cachear valores de message para no acceder muchas veces
+        var targetTime:Float = message[0];
+        var targetData:Int = message[1];
+        var targetSustain:Bool = message[2];
+
+        // Buscar y procesar solo la primera nota que cumpla
+        var foundNote:Note = null;
+        for (note in notes.members) {
+            if (note != null && note.alive && !isPlayerNote(note)) {
+                if (note.noteData == targetData && note.isSustainNote == targetSustain && Math.abs(note.strumTime - targetTime) < 1) {
+                    foundNote = note;
+                    break;
+                }
+            }
         }
-        __note_i--;
-    }
-};
+        if (foundNote != null) {
+            opponentNoteHit(foundNote, sid);
+        }
 
-				if (!message[2] && message[3] != null) {
-					getPlayerStats(sid).combo++;
-					popUpScoreOP(message[3], sid);
-				}
+        // Procesar el resto de lógica
+        if (!targetSustain && message[3] != null) {
+            getPlayerStats(sid).combo++;
+            popUpScoreOP(message[3], sid);
+        }
 
-				callOnLuas(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [message[5], message[1], message[4], message[2], getCharPlayTag(message[6], sid)]);
-				callOnHScript(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [notes.members[message[5]], getCharPlayTag(message[6], sid)]);
-				// RecalculateRatingOpponent(sid, false);
-				updateScoreSID(sid, false);
-				getVocalsFromSID(sid).volume = 1;
-			});
-		});
+        var charTag = getCharPlayTag(message[6], sid);
+        callOnLuas(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [message[5], targetData, message[4], targetSustain, charTag]);
+        callOnHScript(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [notes.members[message[5]], charTag]);
+        updateScoreSID(sid, false);
+        getVocalsFromSID(sid).volume = 1;
+    });
+});
 
 		GameClient.room.onMessage("noteMiss", function(_message:Array<Dynamic>) {
 			var sid:String = _message[0];
@@ -6098,24 +6061,17 @@ class PlayState extends MusicBeatState
 				if (callOnScripts('onMessageNoteMiss', [sid, message], true) == FunkinLua.Function_Stop)
 					return;
 
-				{
-    var __note_i:Int = notes.length - 1;
-    while (__note_i >= 0) {
-        var note = cast(notes.members[__note_i], Dynamic);
-        if (note != null && note.exists) {
-        if (!isPlayerNote(note)
-        						&& note.noteData == message[1]
-        						&& note.isSustainNote == message[2]
-        						&& Math.abs(note.strumTime - message[0]) < 1) 
-        					{
-        						note.kill();
-        						unspawnNotes.remove(note);
-        						note.destroy();
-        					}
-        }
-        __note_i--;
-    }
-};
+				notes.forEachAlive(function(note:Note) {
+					if (!isPlayerNote(note)
+						&& note.noteData == message[1]
+						&& note.isSustainNote == message[2]
+						&& Math.abs(note.strumTime - message[0]) < 1) 
+					{
+						note.kill();
+						unspawnNotes.remove(note);
+						note.destroy();
+					}
+				});
 
 				// RecalculateRatingOpponent(sid, true);
 				updateScoreSID(sid, true);
