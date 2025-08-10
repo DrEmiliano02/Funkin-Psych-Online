@@ -1518,9 +1518,16 @@ class PlayState extends MusicBeatState
 		newText.alpha = 1;
 		newText.setPosition(10, 8 - newText.height);
 
-		luaDebugGroup.forEachAlive(function(spr:DebugLuaText) {
-			spr.y += newText.height + 2;
-		});
+		{
+    var __spr_i:Int = luaDebugGroup.length - 1;
+    while (__spr_i >= 0) {
+        var spr = cast(luaDebugGroup.members[__spr_i], Dynamic);
+        if (spr != null && spr.exists) {
+        spr.y += newText.height + 2;
+        }
+        __spr_i--;
+    }
+};
 		luaDebugGroup.add(newText);
 		#end
 	}
@@ -2024,15 +2031,22 @@ class PlayState extends MusicBeatState
 					trace(exc);
 				}
 
-				notes.forEachAlive(function(note:Note) {
-					if(ClientPrefs.data.opponentStrums || isPlayerNote(note))
-					{
-						note.copyAlpha = false;
-						note.noteAlpha = note.multAlpha;
-						if (ClientPrefs.data.middleScroll && !isPlayerNote(note))
-							note.noteAlpha *= 0.35;
-					}
-				});
+				{
+    var __note_i:Int = notes.length - 1;
+    while (__note_i >= 0) {
+        var note = cast(notes.members[__note_i], Dynamic);
+        if (note != null && note.exists) {
+        if(ClientPrefs.data.opponentStrums || isPlayerNote(note))
+        					{
+        						note.copyAlpha = false;
+        						note.noteAlpha = note.multAlpha;
+        						if (ClientPrefs.data.middleScroll && !isPlayerNote(note))
+        							note.noteAlpha *= 0.35;
+        					}
+        }
+        __note_i--;
+    }
+};
 
 				stagesFunc(function(stage:BaseStage) stage.countdownTick(tick, swagCounter));
 				callOnLuas('onCountdownTick', [swagCounter]);
@@ -3143,11 +3157,17 @@ class PlayState extends MusicBeatState
 					}
 					else
 					{
-						notes.forEachAlive(function(daNote:Note)
 						{
-							daNote.canBeHit = false;
-							daNote.wasGoodHit = false;
-						});
+    var __daNote_i:Int = notes.length - 1;
+    while (__daNote_i >= 0) {
+        var daNote = cast(notes.members[__daNote_i], Dynamic);
+        if (daNote != null && daNote.exists) {
+        daNote.canBeHit = false;
+        							daNote.wasGoodHit = false;
+        }
+        __daNote_i--;
+    }
+};
 					}
 				}
 
@@ -4691,15 +4711,21 @@ class PlayState extends MusicBeatState
 				var pressNotes:Array<Note> = [];
 				var notesStopped:Bool = false;
 				var sortedNotesList:Array<Note> = [];
-				notes.forEachAlive(function(daNote:Note)
 				{
-					if (strumsBlocked[daNote.noteData] != true && daNote.canBeHit && isPlayerNote(daNote) &&
-						!daNote.tooLate && !daNote.wasGoodHit && !daNote.isSustainNote && !daNote.blockHit)
-					{
-						if(daNote.noteData == key) sortedNotesList.push(daNote);
-						canMiss = true;
-					}
-				});
+    var __daNote_i:Int = notes.length - 1;
+    while (__daNote_i >= 0) {
+        var daNote = cast(notes.members[__daNote_i], Dynamic);
+        if (daNote != null && daNote.exists) {
+        if (strumsBlocked[daNote.noteData] != true && daNote.canBeHit && isPlayerNote(daNote) &&
+        						!daNote.tooLate && !daNote.wasGoodHit && !daNote.isSustainNote && !daNote.blockHit)
+        					{
+        						if(daNote.noteData == key) sortedNotesList.push(daNote);
+        						canMiss = true;
+        					}
+        }
+        __daNote_i--;
+    }
+};
 				sortedNotesList.sort(sortHitNotes);
 
 				if (sortedNotesList.length > 0) {
@@ -4831,14 +4857,20 @@ class PlayState extends MusicBeatState
 			// rewritten inputs???
 			if(notes.length > 0)
 			{
-				notes.forEachAlive(function(daNote:Note)
 				{
-					// hold note functions
-					if (strumsBlocked[daNote.noteData] != true && daNote.isSustainNote && holdArray[daNote.noteData] && daNote.canBeHit
-					&& isPlayerNote(daNote) && !daNote.tooLate && !daNote.wasGoodHit && !daNote.blockHit) {
-						goodNoteHit(daNote);
-					}
-				});
+    var __daNote_i:Int = notes.length - 1;
+    while (__daNote_i >= 0) {
+        var daNote = cast(notes.members[__daNote_i], Dynamic);
+        if (daNote != null && daNote.exists) {
+        // hold note functions
+        					if (strumsBlocked[daNote.noteData] != true && daNote.isSustainNote && holdArray[daNote.noteData] && daNote.canBeHit
+        					&& isPlayerNote(daNote) && !daNote.tooLate && !daNote.wasGoodHit && !daNote.blockHit) {
+        						goodNoteHit(daNote);
+        					}
+        }
+        __daNote_i--;
+    }
+};
 			}
 
 			self.noteHold = holdArray.contains(true);
@@ -4866,13 +4898,20 @@ class PlayState extends MusicBeatState
 
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
 		//Dupe note remove
-		notes.forEachAlive(function(note:Note) {
-			if (daNote != note && isPlayerNote(daNote) && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1) {
-				note.kill();
-				notes.remove(note, true);
-				note.destroy();
-			}
-		});
+		{
+    var __note_i:Int = notes.length - 1;
+    while (__note_i >= 0) {
+        var note = cast(notes.members[__note_i], Dynamic);
+        if (note != null && note.exists) {
+        if (daNote != note && isPlayerNote(daNote) && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1) {
+        				note.kill();
+        				notes.remove(note, true);
+        				note.destroy();
+        			}
+        }
+        __note_i--;
+    }
+};
 
 		final end:Note = daNote.isSustainNote ? daNote.parent.tail[daNote.parent.tail.length - 1] : daNote.tail[daNote.tail.length - 1];
 		if (end != null && end.noteHoldSplash != null) {
@@ -6018,15 +6057,22 @@ class PlayState extends MusicBeatState
 				if (callOnScripts('onMessageNoteHit', [sid, message], true) == FunkinLua.Function_Stop)
 					return;
 
-				notes.forEachAlive(function(note:Note) {
-					if (!isPlayerNote(note)
-						&& note.noteData == message[1]
-						&& note.isSustainNote == message[2]
-						&& Math.abs(note.strumTime - message[0]) < 1) 
-					{
-						opponentNoteHit(note, sid);
-					}
-				});
+				{
+    var __note_i:Int = notes.length - 1;
+    while (__note_i >= 0) {
+        var note = cast(notes.members[__note_i], Dynamic);
+        if (note != null && note.exists) {
+        if (!isPlayerNote(note)
+        						&& note.noteData == message[1]
+        						&& note.isSustainNote == message[2]
+        						&& Math.abs(note.strumTime - message[0]) < 1) 
+        					{
+        						opponentNoteHit(note, sid);
+        					}
+        }
+        __note_i--;
+    }
+};
 
 				if (!message[2] && message[3] != null) {
 					getPlayerStats(sid).combo++;
@@ -6052,17 +6098,24 @@ class PlayState extends MusicBeatState
 				if (callOnScripts('onMessageNoteMiss', [sid, message], true) == FunkinLua.Function_Stop)
 					return;
 
-				notes.forEachAlive(function(note:Note) {
-					if (!isPlayerNote(note)
-						&& note.noteData == message[1]
-						&& note.isSustainNote == message[2]
-						&& Math.abs(note.strumTime - message[0]) < 1) 
-					{
-						note.kill();
-						unspawnNotes.remove(note);
-						note.destroy();
-					}
-				});
+				{
+    var __note_i:Int = notes.length - 1;
+    while (__note_i >= 0) {
+        var note = cast(notes.members[__note_i], Dynamic);
+        if (note != null && note.exists) {
+        if (!isPlayerNote(note)
+        						&& note.noteData == message[1]
+        						&& note.isSustainNote == message[2]
+        						&& Math.abs(note.strumTime - message[0]) < 1) 
+        					{
+        						note.kill();
+        						unspawnNotes.remove(note);
+        						note.destroy();
+        					}
+        }
+        __note_i--;
+    }
+};
 
 				// RecalculateRatingOpponent(sid, true);
 				updateScoreSID(sid, true);
