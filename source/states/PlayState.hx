@@ -6010,19 +6010,19 @@ GameClient.room.onMessage("noteHit", function(_message:Array<Dynamic>) {
     var message:Array<Dynamic> = _message[1];
 
     Waiter.put(() -> {
-        // Validación rápida para evitar entrar en loops innecesarios
+        // Validación rápida para evitar procesar datos nulos
         if (message == null || message.length < 3 || message[0] == null || message[1] == null || message[2] == null)
             return;
 
-        if (callOnScripts('onMessageNoteHit', [sid, message], true) == FunkinLua.Function_Stop)
-            return;
+        // En 0.7.1h no existe FunkinLua.Function_Stop, así que solo llamamos scripts y no detenemos ejecución
+        callOnScripts('onMessageNoteHit', [sid, message], true);
 
-        // Cachear valores de message para no acceder muchas veces
+        // Cachear valores para menos accesos a array
         var targetTime:Float = message[0];
         var targetData:Int = message[1];
         var targetSustain:Bool = message[2];
 
-        // Buscar y procesar solo la primera nota que cumpla
+        // Buscar solo la primera nota válida para reducir lag
         var foundNote:Note = null;
         for (note in notes.members) {
             if (note != null && note.alive && !isPlayerNote(note)) {
@@ -6032,19 +6032,24 @@ GameClient.room.onMessage("noteHit", function(_message:Array<Dynamic>) {
                 }
             }
         }
+
         if (foundNote != null) {
             opponentNoteHit(foundNote, sid);
         }
 
-        // Procesar el resto de lógica
+        // Si no es nota de hold, actualizar combo y mostrar puntuación
         if (!targetSustain && message[3] != null) {
             getPlayerStats(sid).combo++;
             popUpScoreOP(message[3], sid);
         }
 
         var charTag = getCharPlayTag(message[6], sid);
+
+        // Llamadas a scripts LUA y HScript (sin FunkinLua)
         callOnLuas(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [message[5], targetData, message[4], targetSustain, charTag]);
         callOnHScript(message[6] ? 'goodNoteHit' : 'opponentNoteHit', [notes.members[message[5]], charTag]);
+
+        // Actualizar puntuación y restaurar volumen de voces
         updateScoreSID(sid, false);
         getVocalsFromSID(sid).volume = 1;
     });
