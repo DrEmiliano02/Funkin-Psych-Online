@@ -3037,7 +3037,7 @@ if (curSec != _lastShownSec && ClientPrefs.data.timeBarType != 'Song Name') {
 		FlxG.watch.addQuick("stepShit", curStep);
 
 		// RESET = Quick Game Over Screen
-		// Lag/desync guard — optimizado
+		// --- Lag/desync guard optimizado ---
 if (!GameClient.isConnected()
     && !ClientPrefs.data.disableLagDetection
     && !finishingSong
@@ -3053,6 +3053,7 @@ if (!GameClient.isConnected()
         #end
     }
 }
+// --- Fin Lag/desync guard optimizado ---
 
 			if (GameClient.isConnected()) {
 				Lib.application.window.resizable = true;
