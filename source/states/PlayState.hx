@@ -103,9 +103,22 @@ import tea.SScript;
 #end
 
 import online.backend.schema.Player;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import openfl.filters.BlurFilter;
+import flixel.util.FlxGradient;
+import flixel.util.FlxColor;
+import flixel.FlxSprite;
 
 class PlayState extends MusicBeatState
 {
+
+    // === Variables añadidas para Blur y Gradient TimeBar ===
+    var blurFilter:BlurFilter;
+    var dadHealthColor:Array<Int> = [];
+    var boyfriendHealthColor:Array<Int> = [];
+    var gfHealthColor:Array<Int> = [];
+
 	public static var STRUM_X = 42;
 	public static var STRUM_X_MIDDLESCROLL = -278;
 
@@ -6352,4 +6365,80 @@ class PlayStatePlayer {
 	function new(player:Player) {
 		this.player = player;
 	}
+
+    override public function create():Void
+    {
+        super.create();
+        // Inicializar BlurFilter
+        blurFilter = new BlurFilter(0, 0);
+        camGame.setFilters([blurFilter]);
+        camHUD.setFilters([blurFilter]);
+
+        // Inicializar barra de tiempo con gradiente
+        gradientTimebar();
+    }
+
+    override public function openSubState(subState:FlxSubState):Void
+    {
+        super.openSubState(subState);
+        if (Std.isOfType(subState, PauseSubState))
+        {
+            blurFilter.blurX = 20;
+            blurFilter.blurY = 20;
+        }
+    }
+
+    override public function closeSubState():Void
+    {
+        super.closeSubState();
+        FlxTween.tween(blurFilter, { blurX: 0, blurY: 0 }, 0.2, { ease: FlxEase.quartIn });
+    }
+
+    override public function onEvent(name:String, value1:String, value2:String):Void
+    {
+        super.onEvent(name, value1, value2);
+        if (name == 'Change Character')
+        {
+            reloadHealthBarColors();
+            reloadGradientTimeBar();
+        }
+    }
+
+    function reloadHealthBarColors():Void
+    {
+        if (dad != null) dadHealthColor = dad.healthColorArray;
+        if (boyfriend != null) boyfriendHealthColor = boyfriend.healthColorArray;
+        if (gf != null) gfHealthColor = gf.healthColorArray;
+    }
+
+    function reloadGradientTimeBar():Void
+    {
+        var boyColor:FlxColor = FlxColor.WHITE;
+        var oppColor:FlxColor = FlxColor.WHITE;
+
+        if (boyfriend != null)
+            boyColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
+
+        if (dad != null)
+            oppColor = FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
+
+        gradientObject(timeBar.leftBar, [boyColor, oppColor], 180);
+    }
+
+    function gradientTimebar(?dadColor:FlxColor, ?bfColor:FlxColor):Void
+    {
+        if (dadColor == null && dad != null)
+            dadColor = FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
+
+        if (bfColor == null && boyfriend != null)
+            bfColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
+
+        gradientObject(timeBar.leftBar, [bfColor, dadColor], 180);
+    }
+
+    function gradientObject(object:FlxSprite, colors:Array<FlxColor>, ?rotate:Int = 90):Void
+    {
+        FlxGradient.overlayGradientOnFlxSprite(object, Std.int(object.width), Std.int(object.height), colors, 0, 0, 1, rotate, true);
+    }
+
 }
