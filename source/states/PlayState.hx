@@ -1,6 +1,4 @@
-package
-
-import openfl.filters.BlurFilter; states;
+package states;
 
 // If you want to add your stage to the game, copy states/stages/Template.hx,
 // and put your stage code there, then, on PlayState, search for
@@ -108,7 +106,6 @@ import online.backend.schema.Player;
 
 class PlayState extends MusicBeatState
 {
-	var blurFilter:BlurFilter;
 	public static var STRUM_X = 42;
 	public static var STRUM_X_MIDDLESCROLL = -278;
 
@@ -509,9 +506,6 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
-		blurFilter = new BlurFilter(0, 0);
-		camGame.setFilters([blurFilter]);
-		camHUD.setFilters([blurFilter]);
 		theWorld = true;
 
 		Conductor.judgeSongPosition = null;
@@ -2662,10 +2656,6 @@ FileSystem.exists(file)) {
 
 	override function openSubState(SubState:FlxSubState)
 	{
-		if (Std.is(subState, PauseSubState)) {
-			blurFilter.blurX = 20;
-			blurFilter.blurY = 20;
-		}
 		if (isCreated) {
 			stagesFunc(function(stage:BaseStage) stage.openSubState(SubState));
 			if (paused)
@@ -2698,9 +2688,6 @@ FileSystem.exists(file)) {
 
 	override function closeSubState()
 	{
-		if (Std.is(subState, PauseSubState)) {
-			FlxTween.tween(blurFilter, {blurX: 0, blurY: 0}, 0.2, {ease: FlxEase.quartIn});
-		}
 		if (isCreated) {
 			stagesFunc(function(stage:BaseStage) stage.closeSubState());
 			if (paused) {
