@@ -1,3 +1,120 @@
+package;
+
+import flixel.FlxSprite;
+import flixel.FlxG;
+import flixel.sound.FlxSound;
+import flixel.util.FlxTimer;
+import haxe.ds.StringMap;
+import haxe.Timer;
+
+class Character extends FlxSprite {
+
+    public var animSounds:StringMap<FlxSound>; // sonidos por nombre de anim (instancia compartida)
+    private static var sharedSounds:Map<String,FlxSound> = new Map<String,FlxSound>();
+
+    private var cachedAnimName:String = null;
+    private var cachedAnimFrame:Int = -1;
+
+    private var profiler:Profiler;
+
+    public function new(X:Float=0, Y:Float=0) {
+        super(X, Y);
+        animSounds = new StringMap<FlxSound>();
+        profiler = new Profiler();
+
+        // Inicializa animaciones / offsets aquí
+        // createAnimations();
+    }
+
+    public function playAnim(animName:String; ?force:Bool = false):Void {
+        if (!force && cachedAnimName == animName) return;
+
+        var s = profiler.start("playAnim");
+
+        cachedAnimName = animName;
+        cachedAnimFrame = -1; // reset frame cache porque cambiamos anim
+
+        if (animation != null && animation.curAnim != null) {
+            if (animation.curAnim.name == animName) {
+                // ya estamos reproduciendo esa anim; sólo asegurar que no esté pausada
+                if (animation.paused) animation.paused = false;
+                profiler.stop(s);
+                return;
+            }
+        }
+
+        animation.play(animName);
+
+        var soundKey = getSoundKeyForAnim(animName);
+        if (soundKey != null) {
+            var snd = getOrCreateSharedSound(soundKey);
+            if (!snd.active) {
+                snd.play(true);
+            }
+        }
+
+        profiler.stop(s);
+    }
+
+    override public function update(elapsed:Float):Void {
+        if (animation != null && animation.curAnim != null) {
+            if (animation.finished && cachedAnimName != \"idle\") {
+                playAnim(\"idle\", true);
+            }
+        }
+
+        var s = profiler.start("update");
+
+        var curFrame = getCurrentFrameIndex();
+        if (curFrame != cachedAnimFrame) {
+            cachedAnimFrame = curFrame;
+            applyFrameOffsets(curFrame);
+        }
+
+        super.update(elapsed);
+
+        profiler.stop(s);
+    }
+
+    private function getCurrentFrameIndex():Int {
+        if (animation == null || animation.curAnim == null) return -1;
+        return animation.curAnim.frameIndex; // ajusta según API exacta
+    }
+
+    private function applyFrameOffsets(frame:Int):Void {
+    }
+
+    private function getSoundKeyForAnim(anim:String):String {
+        switch(anim) {
+            case "walk": return "footsteps";
+            case "run": return "footsteps_fast";
+            case "attack": return "sfx_attack";
+            default: return null;
+        }
+    }
+
+    private function getOrCreateSharedSound(key:String):FlxSound {
+        if (sharedSounds.exists(key)) return sharedSounds.get(key);
+
+        var snd:FlxSound = FlxG.sound.load(key, 1.0, false, false);
+        sharedSounds.set(key, snd);
+        return snd;
+    }
+
+    class Profiler {
+        private var marks:Array<{name:String, start:Float, total:Float, count:Int}>;
+        public function new() {
+            marks = [];
+        }
+        public function start(name:String) { return {name:name, start:Timer.stamp(), idx:marks.length}; }
+        public function stop(token:Dynamic):Void {
+            var now = Timer.stamp();
+            var dur = (now - token.start) * 1000; // ms
+        }
+    }
+
+}
+
 package objects;
 
 import online.away.AnimatedSprite3D;
@@ -753,4 +870,11 @@ class Character extends FlxSprite {
 
 	public function onCombo(from:Int, to:Int) {}
 	public function onHealth(from:Float, to:Float) {}
+
+    // Llamar en cada beat del juego
+    public function beatHit():Void {
+        playAnim("idle", true);
+    }
+    
 }
+*/
