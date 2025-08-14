@@ -12,9 +12,11 @@ class Character extends FlxSprite {
     public var animSounds:StringMap<FlxSound>; // sonidos por nombre de anim (instancia compartida)
     private static var sharedSounds:Map<String,FlxSound> = new Map<String,FlxSound>();
 
+    // Cachés para evitar llamadas repetitivas
     private var cachedAnimName:String = null;
     private var cachedAnimFrame:Int = -1;
 
+    // Instrumentación simple
     private var profiler:Profiler;
 
     public function new(X:Float=0, Y:Float=0) {
@@ -26,14 +28,20 @@ class Character extends FlxSprite {
         // createAnimations();
     }
 
+    // Reproduce una animación con guards y sonido compartido
     public function playAnim(animName:String; ?force:Bool = false):Void {
+        // Guard: si ya estamos en esa animación y no forzamos, salir rápido
         if (!force && cachedAnimName == animName) return;
 
+        // Instrumentación: marca inicio
         var s = profiler.start("playAnim");
 
+        // Actualiza cachés
         cachedAnimName = animName;
         cachedAnimFrame = -1; // reset frame cache porque cambiamos anim
 
+        // Evitar re-llamadas costosas a sprite3D.play / animation.play
+        // (Suponiendo que 'animation' sea el manejador; ajusta al API real)
         if (animation != null && animation.curAnim != null) {
             if (animation.curAnim.name == animName) {
                 // ya estamos reproduciendo esa anim; sólo asegurar que no esté pausada
@@ -43,11 +51,15 @@ class Character extends FlxSprite {
             }
         }
 
+        // Llamada real para reproducir la animación
+        // Mantén esto mínimo: una sola llamada por cambio
         animation.play(animName);
 
+        // Reproducir sonido asociado (usando sonido compartido)
         var soundKey = getSoundKeyForAnim(animName);
         if (soundKey != null) {
             var snd = getOrCreateSharedSound(soundKey);
+            // Solo reproducir si no está ya reproduciéndose (puedes cambiar la lógica)
             if (!snd.active) {
                 snd.play(true);
             }
@@ -56,7 +68,16 @@ class Character extends FlxSprite {
         profiler.stop(s);
     }
 
+    // Llamar en update para controlar frames y evitar trabajo repetido
     override public function update(elapsed:Float):Void {
+        // Forzar idle si animación terminó y no es idle
+        if (animation != null && animation.curAnim != null) {
+            if (animation.finished && cachedAnimName != \"idle\") {
+                playAnim(\"idle\", true);
+            }
+        }
+
+        // Forzar idle si animación terminó y no es idle
         if (animation != null && animation.curAnim != null) {
             if (animation.finished && cachedAnimName != \"idle\") {
                 playAnim(\"idle\", true);
@@ -65,12 +86,15 @@ class Character extends FlxSprite {
 
         var s = profiler.start("update");
 
+        // Ejemplo: sólo actualizar visual si cambió el frame
         var curFrame = getCurrentFrameIndex();
         if (curFrame != cachedAnimFrame) {
             cachedAnimFrame = curFrame;
+            // Actualizaciones que dependen del frame, p.ej. colisiones visuales, offsets
             applyFrameOffsets(curFrame);
         }
 
+        // Lógica normal del personaje
         super.update(elapsed);
 
         profiler.stop(s);
@@ -82,9 +106,13 @@ class Character extends FlxSprite {
     }
 
     private function applyFrameOffsets(frame:Int):Void {
+        // Aplica offsets sólo cuando cambió el frame.
+        // Mantén operaciones ligeras aquí.
     }
 
     private function getSoundKeyForAnim(anim:String):String {
+        // Mapear anim -> key de sonido (precalcula o usa tabla literal)
+        // Por ejemplo:
         switch(anim) {
             case "walk": return "footsteps";
             case "run": return "footsteps_fast";
@@ -96,11 +124,14 @@ class Character extends FlxSprite {
     private function getOrCreateSharedSound(key:String):FlxSound {
         if (sharedSounds.exists(key)) return sharedSounds.get(key);
 
+        // Crear y almacenar una sola vez
         var snd:FlxSound = FlxG.sound.load(key, 1.0, false, false);
+        // Configuración: si quieres que varios personajes usen el mismo buffer, usa FlxG.sound.playCached...
         sharedSounds.set(key, snd);
         return snd;
     }
 
+    // Instrumentación ligera para localizar spikes
     class Profiler {
         private var marks:Array<{name:String, start:Float, total:Float, count:Int}>;
         public function new() {
@@ -110,11 +141,16 @@ class Character extends FlxSprite {
         public function stop(token:Dynamic):Void {
             var now = Timer.stamp();
             var dur = (now - token.start) * 1000; // ms
+            // En lugar de loguear cada vez (costoso), acumular y mostrar ocasionalmente
+            // Aquí simplemente flusheamos cada Xms (ajusta según necesidad)
+            // Para debug rápido:
+            // FlxG.log.print(token.name + ": " + Std.string(dur) + " ms");
         }
     }
 
 }
 
+/* --- Original Fixed Additions ---
 package objects;
 
 import online.away.AnimatedSprite3D;
