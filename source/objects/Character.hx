@@ -1,156 +1,3 @@
-package;
-
-import flixel.FlxSprite;
-import flixel.FlxG;
-import flixel.sound.FlxSound;
-import flixel.util.FlxTimer;
-import haxe.ds.StringMap;
-import haxe.Timer;
-
-class Character extends FlxSprite {
-
-    public var animSounds:StringMap<FlxSound>; // sonidos por nombre de anim (instancia compartida)
-    private static var sharedSounds:Map<String,FlxSound> = new Map<String,FlxSound>();
-
-    // Cachés para evitar llamadas repetitivas
-    private var cachedAnimName:String = null;
-    private var cachedAnimFrame:Int = -1;
-
-    // Instrumentación simple
-    private var profiler:Profiler;
-
-    public function new(X:Float=0, Y:Float=0) {
-        super(X, Y);
-        animSounds = new StringMap<FlxSound>();
-        profiler = new Profiler();
-
-        // Inicializa animaciones / offsets aquí
-        // createAnimations();
-    }
-
-    // Reproduce una animación con guards y sonido compartido
-    public function playAnim(animName:String; ?force:Bool = false):Void {
-        // Guard: si ya estamos en esa animación y no forzamos, salir rápido
-        if (!force && cachedAnimName == animName) return;
-
-        // Instrumentación: marca inicio
-        var s = profiler.start("playAnim");
-
-        // Actualiza cachés
-        cachedAnimName = animName;
-        cachedAnimFrame = -1; // reset frame cache porque cambiamos anim
-
-        // Evitar re-llamadas costosas a sprite3D.play / animation.play
-        // (Suponiendo que 'animation' sea el manejador; ajusta al API real)
-        if (animation != null && animation.curAnim != null) {
-            if (animation.curAnim.name == animName) {
-                // ya estamos reproduciendo esa anim; sólo asegurar que no esté pausada
-                if (animation.paused) animation.paused = false;
-                profiler.stop(s);
-                return;
-            }
-        }
-
-        // Llamada real para reproducir la animación
-        // Mantén esto mínimo: una sola llamada por cambio
-        animation.play(animName);
-
-        // Reproducir sonido asociado (usando sonido compartido)
-        var soundKey = getSoundKeyForAnim(animName);
-        if (soundKey != null) {
-            var snd = getOrCreateSharedSound(soundKey);
-            // Solo reproducir si no está ya reproduciéndose (puedes cambiar la lógica)
-            if (!snd.active) {
-                snd.play(true);
-            }
-        }
-
-        profiler.stop(s);
-    }
-
-    // Llamar en update para controlar frames y evitar trabajo repetido
-    override public function update(elapsed:Float):Void {
-        // Forzar idle si animación terminó y no es idle
-        if (animation != null && animation.curAnim != null) {
-            if (animation.finished && cachedAnimName != \"idle\") {
-                playAnim(\"idle\", true);
-            }
-        }
-
-        // Forzar idle si animación terminó y no es idle
-        if (animation != null && animation.curAnim != null) {
-            if (animation.finished && cachedAnimName != \"idle\") {
-                playAnim(\"idle\", true);
-            }
-        }
-
-        var s = profiler.start("update");
-
-        // Ejemplo: sólo actualizar visual si cambió el frame
-        var curFrame = getCurrentFrameIndex();
-        if (curFrame != cachedAnimFrame) {
-            cachedAnimFrame = curFrame;
-            // Actualizaciones que dependen del frame, p.ej. colisiones visuales, offsets
-            applyFrameOffsets(curFrame);
-        }
-
-        // Lógica normal del personaje
-        super.update(elapsed);
-
-        profiler.stop(s);
-    }
-
-    private function getCurrentFrameIndex():Int {
-        if (animation == null || animation.curAnim == null) return -1;
-        return animation.curAnim.frameIndex; // ajusta según API exacta
-    }
-
-    private function applyFrameOffsets(frame:Int):Void {
-        // Aplica offsets sólo cuando cambió el frame.
-        // Mantén operaciones ligeras aquí.
-    }
-
-    private function getSoundKeyForAnim(anim:String):String {
-        // Mapear anim -> key de sonido (precalcula o usa tabla literal)
-        // Por ejemplo:
-        switch(anim) {
-            case "walk": return "footsteps";
-            case "run": return "footsteps_fast";
-            case "attack": return "sfx_attack";
-            default: return null;
-        }
-    }
-
-    private function getOrCreateSharedSound(key:String):FlxSound {
-        if (sharedSounds.exists(key)) return sharedSounds.get(key);
-
-        // Crear y almacenar una sola vez
-        var snd:FlxSound = FlxG.sound.load(key, 1.0, false, false);
-        // Configuración: si quieres que varios personajes usen el mismo buffer, usa FlxG.sound.playCached...
-        sharedSounds.set(key, snd);
-        return snd;
-    }
-
-    // Instrumentación ligera para localizar spikes
-    class Profiler {
-        private var marks:Array<{name:String, start:Float, total:Float, count:Int}>;
-        public function new() {
-            marks = [];
-        }
-        public function start(name:String) { return {name:name, start:Timer.stamp(), idx:marks.length}; }
-        public function stop(token:Dynamic):Void {
-            var now = Timer.stamp();
-            var dur = (now - token.start) * 1000; // ms
-            // En lugar de loguear cada vez (costoso), acumular y mostrar ocasionalmente
-            // Aquí simplemente flusheamos cada Xms (ajusta según necesidad)
-            // Para debug rápido:
-            // FlxG.log.print(token.name + ": " + Std.string(dur) + " ms");
-        }
-    }
-
-}
-
-/* --- Original Fixed Additions ---
 package objects;
 
 import online.away.AnimatedSprite3D;
@@ -570,9 +417,8 @@ class Character extends FlxSprite {
 			}
 
 			var name:String = getAnimationName();
-			var loopName:String = name + "-loop";
-			if(isAnimationFinished() && animOffsets.exists(loopName))
-				playAnim(loopName);
+			if(isAnimationFinished() && animOffsets.exists('$name-loop'))
+				playAnim('$name-loop');
 		}
 		super.update(elapsed);
 	}
@@ -661,12 +507,6 @@ class Character extends FlxSprite {
 		specialAnim = false;
 		isMissing = AnimName.endsWith("miss");
 
-		// PERFORMANCE: avoid replaying the same animation every frame
-		if (!Force && animation != null && animation.curAnim != null && animation.curAnim.name == AnimName) {
-			return;
-		}
-
-
 		if (AnimName == "taunt" || AnimName == "taunt-alt") {
 			specialAnim = true;
 			heyTimer = 1;
@@ -721,20 +561,18 @@ class Character extends FlxSprite {
 		}
 
 		if (animSounds != null /* ?? */ && animSounds.exists(AnimName)) {
-			// PERFORMANCE: avoid creating/destroying FlxSound every animation frame.
-			var sndPath = animSounds.get(AnimName);
-			if (sndPath != null) {
-				// only start a new sound if none is playing
-				if (sound == null || !sound.active) {
-					sound = FlxG.sound.play(sndPath);
-					if (sound != null) {
-						// stop and null out on complete but do not frequently destroy/start instances
-						sound.onComplete = () -> {
-							sound.stop();
-							sound = null;
-						};
-					}
-				}
+			if (sound != null) {
+				sound.stop();
+				sound.destroy();
+				sound = null;
+			}
+
+			sound = FlxG.sound.play(animSounds.get(AnimName));
+			if (sound != null) {
+				sound.onComplete = () -> {
+					sound.destroy();
+					sound = null;
+				};
 			}
 		}
 
@@ -906,11 +744,4 @@ class Character extends FlxSprite {
 
 	public function onCombo(from:Int, to:Int) {}
 	public function onHealth(from:Float, to:Float) {}
-
-    // Llamar en cada beat del juego
-    public function beatHit():Void {
-        playAnim("idle", true);
-    }
-    
 }
-*/
