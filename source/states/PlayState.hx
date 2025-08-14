@@ -1,4 +1,6 @@
-package states;
+package
+
+import openfl.filters.BlurFilter; states;
 
 // If you want to add your stage to the game, copy states/stages/Template.hx,
 // and put your stage code there, then, on PlayState, search for
@@ -103,40 +105,10 @@ import tea.SScript;
 #end
 
 import online.backend.schema.Player;
-import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
-import openfl.filters.BlurFilter;
-import flixel.util.FlxGradient;
-import flixel.util.FlxColor;
-import flixel.FlxSprite;
 
 class PlayState extends MusicBeatState
 {
-
-    // === Variables añadidas para Blur y Gradient TimeBar ===
-
-    // === Variables de cámara dinámica ===
-    var BfOfs:Int = 20;
-    var GfOfs:Int = 20;
-    var DadOfs:Int = 20;
-
-    var BfOfsX:Int = 0;
-    var BfOfsY:Int = 0;
-
-    var GfOfsX:Int = 0;
-    var GfOfsY:Int = 0;
-
-    var DadOfsX:Int = 0;
-    var DadOfsY:Int = 0;
-
-    var enableSystem:Bool = true;
-    var currentTarget:String = "dad";
-
-    var blurFilter:BlurFilter;
-    var dadHealthColor:Array<Int> = [];
-    var boyfriendHealthColor:Array<Int> = [];
-    var gfHealthColor:Array<Int> = [];
-
+	var blurFilter:BlurFilter;
 	public static var STRUM_X = 42;
 	public static var STRUM_X_MIDDLESCROLL = -278;
 
@@ -537,19 +509,9 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
-
-        // --- Posición inicial de cámara dinámica ---
-        camFollow.x = dadGroup.x + (boyfriendGroup.x - dadGroup.x);
-        camFollow.y = dadGroup.y;
-
-        #if (psychVersion >= "0.7")
-        camGame.scroll.x = camFollow.x - FlxG.width / 2;
-        camGame.scroll.y = camFollow.y - FlxG.height / 2;
-        #else
-        camFollowPos.x = camFollow.x;
-        camFollowPos.y = camFollow.y;
-        #end
-
+		blurFilter = new BlurFilter(0, 0);
+		camGame.setFilters([blurFilter]);
+		camHUD.setFilters([blurFilter]);
 		theWorld = true;
 
 		Conductor.judgeSongPosition = null;
@@ -2700,6 +2662,10 @@ FileSystem.exists(file)) {
 
 	override function openSubState(SubState:FlxSubState)
 	{
+		if (Std.is(subState, PauseSubState)) {
+			blurFilter.blurX = 20;
+			blurFilter.blurY = 20;
+		}
 		if (isCreated) {
 			stagesFunc(function(stage:BaseStage) stage.openSubState(SubState));
 			if (paused)
@@ -2732,6 +2698,9 @@ FileSystem.exists(file)) {
 
 	override function closeSubState()
 	{
+		if (Std.is(subState, PauseSubState)) {
+			FlxTween.tween(blurFilter, {blurX: 0, blurY: 0}, 0.2, {ease: FlxEase.quartIn});
+		}
 		if (isCreated) {
 			stagesFunc(function(stage:BaseStage) stage.closeSubState());
 			if (paused) {
@@ -2845,38 +2814,6 @@ FileSystem.exists(file)) {
 
 	override public function update(elapsed:Float)
 	{
-
-        // --- Control de cámara dinámica ---
-        if (enableSystem && !isCameraOnForcedPos)
-        {
-            var ofsX:Int = 0;
-            var ofsY:Int = 0;
-            var ofs:Int = 0;
-
-            switch (currentTarget)
-            {
-                case "boyfriend": ofs = BfOfs;
-                case "gf": ofs = GfOfs;
-                case "dad": ofs = DadOfs;
-            }
-
-            if (ofs != 0)
-            {
-                var curAnim:String = Reflect.field(Reflect.field(this, currentTarget), "animation").curAnim.name;
-                if (curAnim.startsWith("singLEFT"))
-                    ofsX = -ofs;
-                else if (curAnim.startsWith("singDOWN"))
-                    ofsY = ofs;
-                else if (curAnim.startsWith("singUP"))
-                    ofsY = -ofs;
-                else if (curAnim.startsWith("singRIGHT"))
-                    ofsX = ofs;
-            }
-
-            camFollow.x = getCharX(currentTarget) + ofsX;
-            camFollow.y = getCharY(currentTarget) + ofsY;
-        }
-
 		if (forcePause)
 			return;
 
@@ -6428,114 +6365,4 @@ class PlayStatePlayer {
 	function new(player:Player) {
 		this.player = player;
 	}
-
-    override public function create():Void
-    {
-        super.create();
-        // Inicializar BlurFilter
-        blurFilter = new BlurFilter(0, 0);
-        camGame.setFilters([blurFilter]);
-        camHUD.setFilters([blurFilter]);
-
-        // Inicializar barra de tiempo con gradiente
-        gradientTimebar();
-    }
-
-    override public function openSubState(subState:FlxSubState):Void
-    {
-        super.openSubState(subState);
-        if (Std.isOfType(subState, PauseSubState))
-        {
-            blurFilter.blurX = 20;
-            blurFilter.blurY = 20;
-        }
-    }
-
-    override public function closeSubState():Void
-    {
-        super.closeSubState();
-        FlxTween.tween(blurFilter, { blurX: 0, blurY: 0 }, 0.2, { ease: FlxEase.quartIn });
-    }
-
-    override public function onEvent(name:String, value1:String, value2:String):Void
-    {
-        super.onEvent(name, value1, value2);
-        if (name == 'Change Character')
-        {
-            reloadHealthBarColors();
-            reloadGradientTimeBar();
-        }
-    }
-
-    function reloadHealthBarColors():Void
-    {
-        if (dad != null) dadHealthColor = dad.healthColorArray;
-        if (boyfriend != null) boyfriendHealthColor = boyfriend.healthColorArray;
-        if (gf != null) gfHealthColor = gf.healthColorArray;
-    }
-
-    function reloadGradientTimeBar():Void
-    {
-        var boyColor:FlxColor = FlxColor.WHITE;
-        var oppColor:FlxColor = FlxColor.WHITE;
-
-        if (boyfriend != null)
-            boyColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
-
-        if (dad != null)
-            oppColor = FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
-
-        gradientObject(timeBar.leftBar, [boyColor, oppColor], 180);
-    }
-
-    function gradientTimebar(?dadColor:FlxColor, ?bfColor:FlxColor):Void
-    {
-        if (dadColor == null && dad != null)
-            dadColor = FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
-
-        if (bfColor == null && boyfriend != null)
-            bfColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
-
-        gradientObject(timeBar.leftBar, [bfColor, dadColor], 180);
-    }
-
-    function gradientObject(object:FlxSprite, colors:Array<FlxColor>, ?rotate:Int = 90):Void
-    {
-        FlxGradient.overlayGradientOnFlxSprite(object, Std.int(object.width), Std.int(object.height), colors, 0, 0, 1, rotate, true);
-    }
-
-
-    public function moveCamera(focus:String):Void
-    {
-        currentTarget = focus;
-    }
-
-    function getCharX(character:String):Float
-    {
-        return switch (character)
-        {
-            case "bf", "boyfriend":
-                boyfriend.getMidpoint().x - 150 - boyfriend.cameraPosition[0] + boyfriendCameraOffset[0] + BfOfsX;
-            case "gf":
-                gf.getMidpoint().x + gf.cameraPosition[0] + girlfriendCameraOffset[0] + GfOfsX;
-            case "dad":
-                dad.getMidpoint().x + 150 + dad.cameraPosition[0] + opponentCameraOffset[0] + DadOfsX;
-            default: 0;
-        }
-    }
-
-    function getCharY(character:String):Float
-    {
-        return switch (character)
-        {
-            case "bf", "boyfriend":
-                boyfriend.getMidpoint().y - 100 + boyfriend.cameraPosition[1] + boyfriendCameraOffset[1] + BfOfsY;
-            case "gf":
-                gf.getMidpoint().y + gf.cameraPosition[1] + girlfriendCameraOffset[1] + GfOfsY;
-            case "dad":
-                dad.getMidpoint().y - 100 + dad.cameraPosition[1] + opponentCameraOffset[1] + DadOfsY;
-            default: 0;
-        }
-    }
-
 }
